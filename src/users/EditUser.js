@@ -1,6 +1,6 @@
-import axios from "axios";
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import axios from "axios";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 export default function EditUser() {
   const navigate = useNavigate();
@@ -12,145 +12,156 @@ export default function EditUser() {
     pozicija: "",
     radnoVrijeme: "",
     akademskoZvanje: "",
-    proljetniKoeficijent: "",
-    opterećenje: 0,
-    brojPredmeta: 0,
-    brojStudenataNaOdsjeku: 0,
-    osnovniKoeficijent: 0,
-    umanjenjeKoeficijentaZaRukovodioceIspodOptimuma: 0,
-    povećanjeKoeficijentaZaRukovodiocePreko: 0,
-    povećanjeKoeficijentaPoBrojuStudenata: 0,
-    povećanjeKoeficijentaPoBrojuPredmeta: 0,
-    koeficijentZaDekanaPoBrojuStudenataNaFakultetu: 0,
-    koeficijentZaSefaOdsjekaPoBrojuStudenataNaOdsjeku: 0,
-    koeficijentZaDodatniStudijskiProgram: 1.0,
-    dodatniKoeficijentZaPreko350StudenataNaOdsjeku: 0,
-    dodatniKoeficijentZaAsistentaVisegAsistenta: 1.5,
-    profilnaSlika: null,
+    slikaPath: null
   });
-
-  const [file, setFile] = useState(null);
-
-  const onInputChange = (e) => {
-    setUser({ ...user, [e.target.name]: e.target.value });
-  };
-
-  const onFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-
-    const formData = new FormData();
-
-    for (const key in user) {
-      if (key !== "profilnaSlika") {
-        formData.append(key, user[key]);
-      }
-    }
-
-    if (file) {
-      formData.append("profilnaSlika", file);
-    }
-
-    try {
-      await axios.put(`http://localhost:8080/user/${id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      navigate("/");
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   useEffect(() => {
     loadUser();
   }, []);
 
   const loadUser = async () => {
-    const result = await axios.get(`http://localhost:8080/user/${id}`);
-    setUser(result.data);
+    try {
+      const result = await axios.get(`http://localhost:8080/user/${id}`);
+      setUser(result.data);
+    } catch (error) {
+      console.error("Error loading user:", error);
+    }
+  };
+
+  const onInputChange = (e) => {
+    setUser({ ...user, [e.target.name]: e.target.value });
+  };
+
+  const onFileChange = (e) => {
+    setUser({ ...user, slikaPath: e.target.files[0] });
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      
+      // Dodaj sve podatke u FormData
+      formData.append("imePrezime", user.imePrezime);
+      formData.append("odsjek", user.odsjek);
+      formData.append("pozicija", user.pozicija);
+      formData.append("radnoVrijeme", user.radnoVrijeme);
+      formData.append("akademskoZvanje", user.akademskoZvanje);
+
+      // Ako postoji stara slika, dodaj je kao string
+      if (typeof user.slikaPath === 'string') {
+        formData.append("postojecaSlikaPath", user.slikaPath);
+      }
+
+      // Ako je nova slika odabrana, dodaj je
+      if (user.slikaPath instanceof File) {
+        formData.append("slikaPath", user.slikaPath);
+      }
+
+      await axios.put(`http://localhost:8080/user/${id}`, formData, {
+        headers: { 
+          "Content-Type": "multipart/form-data"
+        }
+      });
+
+      navigate(`/viewuser/${id}`);
+    } catch (error) {
+      console.error("Greška pri ažuriranju podataka:", error.response?.data || error.message);
+    }
   };
 
   return (
     <div className="container">
       <div className="row">
         <div className="col-md-8 offset-md-2 border rounded p-4 mt-2 shadow">
-          <h2 className="text-center m-4">Uredi korisnika</h2>
-
-          {user.profilnaSlika && (
-            <div className="text-center mb-3">
-              <img
-                src={`http://localhost:8080/uploads/${user.profilnaSlika}`}
-                alt="Profilna Slika"
-                style={{ maxWidth: "200px", maxHeight: "200px", objectFit: "cover" }}
-                className="img-thumbnail"
+          <h2 className="text-center m-4">Izmijeni detalje zaposlenika</h2>
+          <form onSubmit={onSubmit}>
+            <div className="mb-3">
+              <label className="form-label">Ime i Prezime</label>
+              <input
+                type="text"
+                className="form-control"
+                name="imePrezime"
+                value={user.imePrezime || ''}
+                onChange={onInputChange}
+                required
               />
             </div>
-          )}
-
-          <form onSubmit={onSubmit} encType="multipart/form-data">
             <div className="mb-3">
-              <label>Ime i Prezime</label>
-              <input type="text" className="form-control" name="imePrezime" value={user.imePrezime} onChange={onInputChange} />
+              <label className="form-label">Odsjek</label>
+              <input
+                type="text"
+                className="form-control"
+                name="odsjek"
+                value={user.odsjek || ''}
+                onChange={onInputChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Pozicija</label>
+              <input
+                type="text"
+                className="form-control"
+                name="pozicija"
+                value={user.pozicija || ''}
+                onChange={onInputChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Radno Vrijeme</label>
+              <input
+                type="text"
+                className="form-control"
+                name="radnoVrijeme"
+                value={user.radnoVrijeme || ''}
+                onChange={onInputChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Akademsko Zvanje</label>
+              <input
+                type="text"
+                className="form-control"
+                name="akademskoZvanje"
+                value={user.akademskoZvanje || ''}
+                onChange={onInputChange}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Profilna slika</label>
+              <input
+                type="file"
+                className="form-control"
+                name="slikaPath"
+                onChange={onFileChange}
+                accept="image/*"
+              />
+              {user.slikaPath && typeof user.slikaPath === 'string' && (
+                <img
+                  src={`http://localhost:8080/uploads/${user.slikaPath}`}
+                  alt="Trenutna profilna slika"
+                  style={{ maxWidth: "200px", marginTop: "10px" }}
+                  className="img-thumbnail"
+                />
+              )}
             </div>
 
-            <div className="mb-3">
-              <label>Odsjek</label>
-              <input type="text" className="form-control" name="odsjek" value={user.odsjek} onChange={onInputChange} />
+            <div className="d-flex gap-2">
+              <button type="submit" className="btn btn-primary">
+                Sačuvaj izmjene
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => navigate(`/viewuser/${id}`)}
+              >
+                Otkaži
+              </button>
             </div>
-
-            <div className="mb-3">
-              <label>Pozicija</label>
-              <input type="text" className="form-control" name="pozicija" value={user.pozicija} onChange={onInputChange} />
-            </div>
-
-            <div className="mb-3">
-              <label>Radno Vrijeme</label>
-              <input type="text" className="form-control" name="radnoVrijeme" value={user.radnoVrijeme} onChange={onInputChange} />
-            </div>
-
-            <div className="mb-3">
-              <label>Akademsko Zvanje</label>
-              <input type="text" className="form-control" name="akademskoZvanje" value={user.akademskoZvanje} onChange={onInputChange} />
-            </div>
-
-            <div className="mb-3">
-              <label>Proljetni Koeficijent</label>
-              <input type="text" className="form-control" name="proljetniKoeficijent" value={user.proljetniKoeficijent} onChange={onInputChange} />
-            </div>
-
-            {/* Sva numerička polja */}
-            {[
-              "opterećenje",
-              "brojPredmeta",
-              "brojStudenataNaOdsjeku",
-              "osnovniKoeficijent",
-              "umanjenjeKoeficijentaZaRukovodioceIspodOptimuma",
-              "povećanjeKoeficijentaZaRukovodiocePreko",
-              "povećanjeKoeficijentaPoBrojuStudenata",
-              "povećanjeKoeficijentaPoBrojuPredmeta",
-              "koeficijentZaDekanaPoBrojuStudenataNaFakultetu",
-              "koeficijentZaSefaOdsjekaPoBrojuStudenataNaOdsjeku",
-              "koeficijentZaDodatniStudijskiProgram",
-              "dodatniKoeficijentZaPreko350StudenataNaOdsjeku",
-              "dodatniKoeficijentZaAsistentaVisegAsistenta",
-            ].map((field) => (
-              <div className="mb-3" key={field}>
-                <label>{field}</label>
-                <input type="number" className="form-control" name={field} value={user[field]} onChange={onInputChange} />
-              </div>
-            ))}
-
-            <div className="mb-3">
-              <label>Izmijeni profilnu sliku</label>
-              <input type="file" className="form-control" name="profilnaSlika" onChange={onFileChange} />
-            </div>
-
-            <button type="submit" className="btn btn-primary">Spasi izmjene</button>
           </form>
         </div>
       </div>

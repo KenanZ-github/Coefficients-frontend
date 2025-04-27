@@ -5,37 +5,70 @@ import * as XLSX from "xlsx";
 
 export default function Home() {
   const [users, setUsers] = useState([]);
-  const [imePrezimeTerm, setImePrezimeTerm] = useState("");  // Dodano
-  const [odsjekTerm, setOdsjekTerm] = useState("");  // Dodano
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [imePrezimeTerm, setImePrezimeTerm] = useState("");
+  const [odsjekTerm, setOdsjekTerm] = useState("");
 
   useEffect(() => {
     loadUsers();
   }, []);
 
   const loadUsers = async () => {
-    const result = await axios.get("http://localhost:8080/user");
-    setUsers(result.data);
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await axios.get("http://localhost:8080/user");
+      console.log("API Response:", result.data);
+      
+      if (Array.isArray(result.data)) {
+        setUsers(result.data);
+      } else {
+        console.error("API did not return an array:", result.data);
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error("Error loading users:", error);
+      setError("Greška pri učitavanju korisnika");
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSearch = async () => {
-    const params = new URLSearchParams();
-    if (imePrezimeTerm.trim() !== "") params.append("imePrezime", imePrezimeTerm);
-    if (odsjekTerm.trim() !== "") params.append("odsjek", odsjekTerm);
-  
-    if (params.toString() !== "") {
-      const result = await axios.get(`http://localhost:8080/user/users/search?${params.toString()}`);
-      setUsers(result.data);
-    } else {
-      loadUsers();
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams();
+      if (imePrezimeTerm.trim() !== "") params.append("imePrezime", imePrezimeTerm);
+      if (odsjekTerm.trim() !== "") params.append("odsjek", odsjekTerm);
+    
+      const url = params.toString() !== "" 
+        ? `http://localhost:8080/user/users/search?${params.toString()}`
+        : "http://localhost:8080/user";
+
+      const result = await axios.get(url);
+      console.log("Search results:", result.data);
+      setUsers(Array.isArray(result.data) ? result.data : []);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      setError("Greška pri pretraživanju");
+      setUsers([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const deleteUser = async (id) => {
-    try {
-      await axios.delete(`http://localhost:8080/user/${id}`);
-      loadUsers();
-    } catch (error) {
-      console.error("There was an error deleting the user!", error);
+    if (window.confirm("Jeste li sigurni da želite izbrisati ovog korisnika?")) {
+      try {
+        await axios.delete(`http://localhost:8080/user/${id}`);
+        loadUsers();
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        alert("Greška pri brisanju korisnika");
+      }
     }
   };
 
@@ -46,13 +79,14 @@ export default function Home() {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
       XLSX.writeFile(workbook, "users.xlsx");
     } else {
-      console.warn("No users to export.");
+      alert("Nema podataka za izvoz");
     }
   };
 
   return (
     <div className="container">
       <div className="py-4">
+        {/* Search and Export Controls */}
         <div className="d-flex mb-3 align-items-center gap-2">
           <input
             type="text"
@@ -70,51 +104,92 @@ export default function Home() {
             value={odsjekTerm}
             onChange={(e) => setOdsjekTerm(e.target.value)}
           />
-          <button className="btn btn-primary" onClick={handleSearch}>
-            Pretraga
+          <button 
+            className="btn btn-primary" 
+            onClick={handleSearch}
+            disabled={loading}
+          >
+            {loading ? "Učitavanje..." : "Pretraga"}
           </button>
-          <button className="btn btn-success" onClick={exportToExcel}>
+          <button 
+            className="btn btn-success" 
+            onClick={exportToExcel}
+            disabled={users.length === 0}
+          >
             Export to Excel
           </button>
+          <Link to="/adduser" className="btn btn-primary">
+            Dodaj novog zaposlenika
+          </Link>
         </div>
 
-        {users.length > 0 ? (
-          <table className="table border shadow">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Ime Prezime</th>
-                <th>Odsjek</th>
-                <th>Pozicija</th>
-                <th>Proljetni Koeficijent</th>
-                <th>Akcija</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user, index) => (
-                <tr key={index}>
-                  <th scope="row">{index + 1}</th>
-                  <td>{user.imePrezime}</td>
-                  <td>{user.odsjek}</td>
-                  <td>{user.pozicija}</td>
-                  <td>{user.proljetniKoeficijent}</td>
-                  <td>
-                    <Link className="btn btn-primary mx-2" to={`/viewuser/${user.id}`}>
-                      View
-                    </Link>
-                    <Link className="btn btn-outline-primary mx-2" to={`/edituser/${user.id}`}>
-                      Edit
-                    </Link>
-                    <button className="btn btn-danger mx-2" onClick={() => deleteUser(user.id)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p>Nema pronađenih zaposlenika.</p>
+        {/* Error Message */}
+        {error && (
+          <div className="alert alert-danger" role="alert">
+            {error}
+          </div>
+        )}
+
+        {/* Loading Message */}
+        {loading && (
+          <div className="text-center">
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Users Table */}
+        {!loading && !error && (
+          <>
+            {users.length > 0 ? (
+              <table className="table border shadow">
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Ime Prezime</th>
+                    <th scope="col">Odsjek</th>
+                    <th scope="col">Pozicija</th>
+                    <th scope="col">Akademsko Zvanje</th>
+                    <th scope="col">Akcije</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user, index) => (
+                    <tr key={user.id || index}>
+                      <th scope="row">{index + 1}</th>
+                      <td>{user.imePrezime}</td>
+                      <td>{user.odsjek}</td>
+                      <td>{user.pozicija}</td>
+                      <td>{user.akademskoZvanje}</td>
+                      <td>
+                        <Link 
+                          className="btn btn-primary btn-sm mx-1" 
+                          to={`/viewuser/${user.id}`}
+                        >
+                          View
+                        </Link>
+                        <Link 
+                          className="btn btn-outline-primary btn-sm mx-1" 
+                          to={`/edituser/${user.id}`}
+                        >
+                          Edit
+                        </Link>
+                        <button 
+                          className="btn btn-danger btn-sm mx-1"
+                          onClick={() => deleteUser(user.id)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-center">Nema pronađenih zaposlenika.</p>
+            )}
+          </>
         )}
       </div>
     </div>

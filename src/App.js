@@ -1,11 +1,13 @@
+import React from "react";
+import { Routes, Route } from "react-router-dom";
 import "./App.css";
 import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
 import Navbar from "./Layout/Navbar";
-import Home from "./pages/Home";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import UserList from "./users/UserList";
 import AddUser from "./users/AddUser";
 import EditUser from "./users/EditUser";
 import ViewUser from "./users/ViewUser";
+import EditAcademicYear from "./users/EditAcademicYear";
 import * as XLSX from "xlsx"; // Import za Excel
 
 function App() {
@@ -18,15 +20,14 @@ function App() {
 
   return (
     <div className="App">
-      <Router>
-        <Navbar /> {/* Ukloni proslijeđivanje ovdje */}
-        <Routes>
-          <Route exact path="/" element={<Home exportToExcel={exportToExcel} />} /> {/* Proslijedi u Home */}
-          <Route exact path="/adduser" element={<AddUser />} />
-          <Route exact path="/edituser/:id" element={<EditUser />} />
-          <Route exact path="/viewuser/:id" element={<ViewUser />} />
-        </Routes>
-      </Router>
+      <Navbar />
+      <Routes>
+        <Route exact path="/" element={<UserList />} />
+        <Route exact path="/adduser" element={<AddUser />} />
+        <Route exact path="/edituser/:id" element={<EditUser />} />
+        <Route exact path="/viewuser/:id" element={<ViewUser />} />
+        <Route exact path="/editacademic/:userId/:academicId" element={<EditAcademicYear />} />
+      </Routes>
     </div>
   );
 }
