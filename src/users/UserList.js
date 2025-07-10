@@ -1,54 +1,48 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import '../styles/global.css';
+import * as XLSX from "xlsx";
 
 export default function UserList() {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [searchImePrezime, setSearchImePrezime] = useState("");
+  const [searchOdsjek, setSearchOdsjek] = useState("");
   const [error, setError] = useState(null);
-  const [searchParams, setSearchParams] = useState({
-    imePrezime: "",
-    odsjek: ""
-  });
 
+  // Učitaj sve korisnike prilikom mountanja komponente
   useEffect(() => {
     loadUsers();
   }, []);
 
+  // Automatski resetuj listu kada su oba polja prazna
+  useEffect(() => {
+    if (searchImePrezime === "" && searchOdsjek === "") {
+      loadUsers();
+    }
+  }, [searchImePrezime, searchOdsjek]);
+
   const loadUsers = async () => {
     try {
-      setLoading(true);
-      setError(null);
       const result = await axios.get("http://localhost:8080/user");
-      setUsers(Array.isArray(result.data) ? result.data : []);
+      setUsers(result.data);
+      setError(null);
     } catch (error) {
-      console.error("Greška pri učitavanju korisnika:", error);
       setError("Greška pri učitavanju korisnika");
-      setUsers([]);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSearch = async () => {
     try {
-      setLoading(true);
+      const params = {};
+      if (searchImePrezime) params.imePrezime = searchImePrezime;
+      if (searchOdsjek) params.odsjek = searchOdsjek;
+
+      const result = await axios.get("http://localhost:8080/user/users/search", { params });
+      setUsers(result.data);
       setError(null);
-      let searchQuery = "http://localhost:8080/user/users/search?";
-      if (searchParams.imePrezime) {
-        searchQuery += `imePrezime=${encodeURIComponent(searchParams.imePrezime)}&`;
-      }
-      if (searchParams.odsjek) {
-        searchQuery += `odsjek=${encodeURIComponent(searchParams.odsjek)}`;
-      }
-      const result = await axios.get(searchQuery);
-      setUsers(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
-      console.error("Greška pri pretrazi:", error);
       setError("Greška pri pretrazi korisnika");
-      setUsers([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -58,123 +52,166 @@ export default function UserList() {
         await axios.delete(`http://localhost:8080/user/${id}`);
         loadUsers();
       } catch (error) {
-        console.error("Greška pri brisanju korisnika:", error);
-        alert("Greška pri brisanju korisnika: " + (error.response?.data || error.message));
+        setError("Greška pri brisanju korisnika: " + (error.response?.data || error.message));
       }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container d-flex justify-content-center mt-5">
-        <div className="spinner-border" role="status">
-          <span className="visually-hidden">Učitavanje...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mt-3">
-        <div className="alert alert-danger" role="alert">
-          {error}
-        </div>
-      </div>
-    );
-  }
+  const exportToExcel = () => {
+    const data = users.map(user => {
+      const base = {
+        "Ime i Prezime": user.imePrezime,
+        "Odsjek": user.odsjek,
+        "Pozicija": user.pozicija,
+        "Radno Vrijeme": user.radnoVrijeme,
+        "Akademsko Zvanje": user.akademskoZvanje,
+      };
+      if (user.academics && user.academics.length > 0) {
+        user.academics.forEach((academic, idx) => {
+          base[`Godina ${idx + 1}`] = academic.academicYear;
+          base[`Koeficijent ${idx + 1}`] = academic.ukupanKoeficijentZaJesenjiSemestar;
+        });
+      }
+      return base;
+    });
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Zaposlenici");
+    XLSX.writeFile(workbook, "zaposlenici.xlsx");
+  };
 
   return (
-    <div className="container">
-      <div className="py-4">
-        <div className="row mb-4">
-          <div className="col-md-12">
-            <div className="card">
-              <div className="card-body">
-                <h5 className="card-title">Pretraga korisnika</h5>
-                <div className="row">
-                  <div className="col-md-5">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Ime i prezime"
-                      value={searchParams.imePrezime}
-                      onChange={(e) => setSearchParams({...searchParams, imePrezime: e.target.value})}
+    <div className="container py-4">
+      <div className="page-header text-center mb-4">
+        <h3 className="fw-bold mb-2" style={{ fontSize: "2rem" }}>PREGLED ZAPOSLENIKA</h3>
+        <p className="lead">Upravljanje koeficijentima akademskog osoblja</p>
+      </div>
+
+      <div className="search-form">
+        <div className="row">
+          <div className="col-md-5">
+            <div className="form-group">
+              <label className="form-label">Ime i Prezime</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Pretraži po imenu..."
+                name="searchImePrezime"
+                value={searchImePrezime}
+                onChange={(e) => setSearchImePrezime(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="col-md-5">
+            <div className="form-group">
+              <label className="form-label">Odsjek</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Pretraži po odsjeku..."
+                name="searchOdsjek"
+                value={searchOdsjek}
+                onChange={(e) => setSearchOdsjek(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="col-md-2 d-flex align-items-end gap-2">
+            <button 
+              className="btn btn-academic d-flex justify-content-center align-items-center"
+              onClick={handleSearch}
+              type="button"
+              style={{ height: "36px", width: "75px" }}
+            >
+              <i className="fas fa-search" style={{ marginRight: "6px" }}></i>
+              Pretraži
+            </button>
+            <button
+              className="btn btn-academic d-flex justify-content-center align-items-center"
+              onClick={exportToExcel}
+              type="button"
+              style={{ height: "36px", width: "75px" }}
+            >
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="alert alert-danger mt-3" role="alert">
+          {error}
+        </div>
+      )}
+
+      <div className="table-academic mt-3">
+        <table className="table mb-0">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Slika</th>
+              <th scope="col">Ime i Prezime</th>
+              <th scope="col">Odsjek</th>
+              <th scope="col">Pozicija</th>
+              <th scope="col">Akademsko Zvanje</th>
+              <th scope="col" className="text-center">Akcije</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((user, index) => (
+              <tr key={user.id}>
+                <th scope="row">{index + 1}</th>
+                <td>
+                  {user.slikaPath ? (
+                    <img 
+                      src={`http://localhost:8080/uploads/${user.slikaPath}`}
+                      alt={user.imePrezime}
+                      className="profile-image"
+                      style={{ width: '50px', height: '50px', objectFit: 'cover' }}
                     />
-                  </div>
-                  <div className="col-md-5">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Odsjek"
-                      value={searchParams.odsjek}
-                      onChange={(e) => setSearchParams({...searchParams, odsjek: e.target.value})}
-                    />
-                  </div>
-                  <div className="col-md-2">
-                    <button className="btn btn-primary w-100" onClick={handleSearch}>
-                      Pretraži
+                  ) : (
+                    <div 
+                      className="profile-image-placeholder"
+                      style={{ 
+                        width: '50px', 
+                        height: '50px', 
+                        backgroundColor: 'var(--primary-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        borderRadius: '50%'
+                      }}
+                    >
+                      {user.imePrezime.charAt(0)}
+                    </div>
+                  )}
+                </td>
+                <td>{user.imePrezime}</td>
+                <td>{user.odsjek}</td>
+                <td>{user.pozicija}</td>
+                <td>{user.akademskoZvanje}</td>
+                <td>
+                  <div className="d-flex justify-content-center gap-2">
+                    <Link
+                      className="btn btn-academic btn-sm"
+                      to={`/viewuser/${user.id}`}
+                    >
+                      <i className="fas fa-eye me-1"></i>
+                      Pregled
+                    </Link>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(user.id)}
+                    >
+                      <i className="fas fa-trash-alt me-1"></i>
+                      Brisanje
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="row">
-          <div className="col-md-12">
-            <div className="table-responsive">
-              <table className="table border shadow">
-                <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Slika</th>
-                    <th scope="col">Ime i Prezime</th>
-                    <th scope="col">Odsjek</th>
-                    <th scope="col">Pozicija</th>
-                    <th scope="col">Akademsko Zvanje</th>
-                    <th scope="col">Akcije</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user, index) => (
-                    <tr key={user.id}>
-                      <th scope="row">{index + 1}</th>
-                      <td>
-                        {user.slikaPath && (
-                          <img 
-                            src={`http://localhost:8080/uploads/${user.slikaPath}`}
-                            alt={user.imePrezime}
-                            style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                          />
-                        )}
-                      </td>
-                      <td>{user.imePrezime}</td>
-                      <td>{user.odsjek}</td>
-                      <td>{user.pozicija}</td>
-                      <td>{user.akademskoZvanje}</td>
-                      <td>
-                        <Link
-                          className="btn btn-primary mx-1"
-                          to={`/viewuser/${user.id}`}
-                        >
-                          Pregled
-                        </Link>
-                        <button
-                          className="btn btn-danger mx-1"
-                          onClick={() => handleDelete(user.id)}
-                        >
-                          Brisanje
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

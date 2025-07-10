@@ -26,8 +26,6 @@ export default function AddUser() {
     e.preventDefault();
     try {
       const formData = new FormData();
-      
-      // Dodaj osnovne informacije o korisniku
       formData.append("imePrezime", user.imePrezime);
       formData.append("odsjek", user.odsjek);
       formData.append("pozicija", user.pozicija);

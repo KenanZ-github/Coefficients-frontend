@@ -108,6 +108,7 @@ export default function Home() {
             className="btn btn-primary" 
             onClick={handleSearch}
             disabled={loading}
+            style={{ height: "40px", width: "90px" }}
           >
             {loading ? "Učitavanje..." : "Pretraga"}
           </button>
@@ -115,6 +116,7 @@ export default function Home() {
             className="btn btn-success" 
             onClick={exportToExcel}
             disabled={users.length === 0}
+            style={{ height: "40px", width: "90px" }}
           >
             Export to Excel
           </button>
